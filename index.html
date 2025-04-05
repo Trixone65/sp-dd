@@ -1,0 +1,1369 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>نظام إدارة مخزون الهواتف - تونس</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        h1, h2 {
+            color: #333;
+            text-align: center;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input, select, textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        button.print {
+            background: #2196F3;
+        }
+        button.export {
+            background: #ff9800;
+        }
+        button.danger {
+            background: #f44336;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: right;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        .tabs {
+            display: flex;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        .tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            background: #f1f1f1;
+            margin-left: 5px;
+            border-radius: 5px 5px 0 0;
+        }
+        .tab.active {
+            background: #4CAF50;
+            color: white;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .print-only {
+            display: none;
+        }
+        .login-container {
+            max-width: 400px;
+            margin: 50px auto;
+            padding: 20px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        .hidden {
+            display: none;
+        }
+        @media print {
+            .no-print {
+                display: none;
+            }
+            .print-only {
+                display: block;
+            }
+            body {
+                background: white;
+                padding: 0;
+                margin: 0;
+            }
+            .container {
+                box-shadow: none;
+                padding: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Login Section -->
+    <div id="loginSection" class="login-container">
+        <h2 style="text-align: center;">تسجيل الدخول</h2>
+        <div class="form-group">
+            <label for="username">اسم المستخدم:</label>
+            <input type="text" id="username" required>
+        </div>
+        <div class="form-group">
+            <label for="password">كلمة المرور:</label>
+            <input type="password" id="password" required>
+        </div>
+        <button onclick="login()" style="width: 100%;">دخول</button>
+        <p style="text-align: center; margin-top: 15px;">
+            ليس لديك حساب؟ <a href="#" onclick="showRegisterForm()">تسجيل جديد</a>
+        </p>
+    </div>
+
+    <!-- Register Section -->
+    <div id="registerSection" class="login-container hidden">
+        <h2 style="text-align: center;">إنشاء حساب جديد</h2>
+        <div class="form-group">
+            <label for="newUsername">اسم المستخدم:</label>
+            <input type="text" id="newUsername" required>
+        </div>
+        <div class="form-group">
+            <label for="newPassword">كلمة المرور:</label>
+            <input type="password" id="newPassword" required>
+        </div>
+        <div class="form-group">
+            <label for="confirmPassword">تأكيد كلمة المرور:</label>
+            <input type="password" id="confirmPassword" required>
+        </div>
+        <button onclick="register()" style="width: 100%;">تسجيل</button>
+        <p style="text-align: center; margin-top: 15px;">
+            لديك حساب بالفعل؟ <a href="#" onclick="showLoginForm()">تسجيل الدخول</a>
+        </p>
+    </div>
+
+    <!-- Main App Content -->
+    <div id="appContent" class="container hidden">
+        <h1>نظام إدارة مخزون الهواتف والفواتير</h1>
+        
+        <div class="tabs no-print">
+            <div class="tab active" onclick="openTab('inventory')">المخزون</div>
+            <div class="tab" onclick="openTab('addPhone')">إضافة هاتف</div>
+            <div class="tab" onclick="openTab('sales')">المبيعات</div>
+            <div class="tab" onclick="openTab('invoices')">الفواتير</div>
+            <div class="tab" onclick="openTab('repairs')">خدمة الإصلاح</div>
+            <div class="tab" onclick="openTab('clients')">العملاء</div>
+            <div class="tab danger" onclick="logout()">تسجيل الخروج</div>
+        </div>
+        
+        <!-- Inventory Management -->
+        <div id="inventory" class="tab-content active">
+            <h2>قائمة الهواتف في المخزون</h2>
+            <table id="inventoryTable">
+                <thead>
+                    <tr>
+                        <th>الموديل</th>
+                        <th>اللون</th>
+                        <th>السعة</th>
+                        <th>IMEI</th>
+                        <th>سعر الشراء</th>
+                        <th>سعر البيع</th>
+                        <th>الحالة</th>
+                        <th class="no-print">إجراءات</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+        
+        <!-- Add Phone Section -->
+        <div id="addPhone" class="tab-content">
+            <h2>إضافة هاتف جديد إلى المخزون</h2>
+            <div class="form-group">
+                <label for="phoneModel">الموديل:</label>
+                <input type="text" id="phoneModel" required>
+            </div>
+            <div class="form-group">
+                <label for="phoneColor">اللون:</label>
+                <input type="text" id="phoneColor" required>
+            </div>
+            <div class="form-group">
+                <label for="phoneStorage">السعة:</label>
+                <input type="text" id="phoneStorage" required>
+            </div>
+            <div class="form-group">
+                <label for="phoneImei">رقم IMEI:</label>
+                <input type="text" id="phoneImei" required>
+            </div>
+            <div class="form-group">
+                <label for="purchasePrice">سعر الشراء (د.ت):</label>
+                <input type="number" id="purchasePrice" required step="0.001">
+            </div>
+            <div class="form-group">
+                <label for="salePrice">سعر البيع (د.ت):</label>
+                <input type="number" id="salePrice" required step="0.001">
+            </div>
+            <button onclick="addPhone()">إضافة إلى المخزون</button>
+        </div>
+        
+        <!-- Sales Section -->
+        <div id="sales" class="tab-content">
+            <h2>إدارة المبيعات</h2>
+            <div class="form-group">
+                <label for="searchPhoneSale">بحث عن هاتف (IMEI أو الموديل):</label>
+                <input type="text" id="searchPhoneSale" oninput="searchPhonesForSale()">
+            </div>
+            
+            <div id="availablePhones" style="margin: 20px 0;">
+                <h3>الهواتف المتاحة للبيع</h3>
+                <table id="availablePhonesTable">
+                    <thead>
+                        <tr>
+                            <th>الموديل</th>
+                            <th>IMEI</th>
+                            <th>سعر البيع</th>
+                            <th>إجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+            
+            <div id="saleForm" style="border: 1px solid #ddd; padding: 15px; border-radius: 5px;">
+                <h3>فاتورة البيع</h3>
+                <div class="form-group">
+                    <label for="clientSelect">اختر العميل:</label>
+                    <select id="clientSelect">
+                        <option value="">-- اختر عميل --</option>
+                    </select>
+                    <button onclick="showAddClientForm()" style="background: #2196F3;">إضافة عميل جديد</button>
+                </div>
+                <div class="form-group">
+                    <label for="paymentMethod">طريقة الدفع:</label>
+                    <select id="paymentMethod">
+                        <option value="نقدي">نقدي</option>
+                        <option value="بطاقة">بطاقة</option>
+                        <option value="تحويل">تحويل بنكي</option>
+                    </select>
+                </div>
+                
+                <h4>الهواتف المختارة للبيع</h4>
+                <table id="selectedPhonesTable">
+                    <thead>
+                        <tr>
+                            <th>الموديل</th>
+                            <th>IMEI</th>
+                            <th>السعر</th>
+                            <th>إجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                    <tfoot>
+                        <tr>
+                            <th colspan="2">المجموع</th>
+                            <th id="totalAmount">0.000 د.ت</th>
+                            <th></th>
+                        </tr>
+                    </tfoot>
+                </table>
+                
+                <button onclick="createInvoice()" style="background: #4CAF50;">إنشاء الفاتورة</button>
+            </div>
+        </div>
+        
+        <!-- Invoices Section -->
+        <div id="invoices" class="tab-content">
+            <h2>إدارة الفواتير</h2>
+            <div class="form-group">
+                <label for="searchInvoice">بحث عن فاتورة (رقم أو عميل):</label>
+                <input type="text" id="searchInvoice" oninput="searchInvoices()">
+            </div>
+            
+            <table id="invoicesTable">
+                <thead>
+                    <tr>
+                        <th>رقم الفاتورة</th>
+                        <th>التاريخ</th>
+                        <th>العميل</th>
+                        <th>المبلغ</th>
+                        <th>طريقة الدفع</th>
+                        <th class="no-print">إجراءات</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+            
+            <div id="invoiceDetails" style="display: none; margin-top: 30px;">
+                <h3>تفاصيل الفاتورة</h3>
+                <div id="invoiceInfo"></div>
+                <button onclick="printInvoice()" class="print">طباعة الفاتورة</button>
+                <button onclick="exportInvoiceToPDF()" class="export">تصدير إلى PDF</button>
+                <button onclick="exportInvoiceToExcel()" class="export">تصدير إلى Excel</button>
+            </div>
+        </div>
+        
+        <!-- Repairs Section -->
+        <div id="repairs" class="tab-content">
+            <h2>خدمة الإصلاح</h2>
+            <button onclick="showRepairForm()" class="no-print">إنشاء أمر إصلاح</button>
+            
+            <div id="repairForm" style="display: none; margin-top: 20px; border: 1px solid #ddd; padding: 15px; border-radius: 5px;">
+                <h3>أمر إصلاح جديد</h3>
+                <div class="form-group">
+                    <label for="repairClient">اختر العميل:</label>
+                    <select id="repairClient">
+                        <option value="">-- اختر عميل --</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="repairPhoneImei">رقم IMEI (اختياري):</label>
+                    <input type="text" id="repairPhoneImei">
+                </div>
+                <div class="form-group">
+                    <label for="problemDesc">وصف المشكلة:</label>
+                    <textarea id="problemDesc" rows="4" style="width: 100%;"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="estimatedCost">التكلفة المقدرة (د.ت):</label>
+                    <input type="number" id="estimatedCost" step="0.001">
+                </div>
+                <button onclick="createRepairOrder()">حفظ أمر الإصلاح</button>
+            </div>
+
+            <h3>أوامر الإصلاح</h3>
+            <table id="repairsTable">
+                <thead>
+                    <tr>
+                        <th>رقم الأمر</th>
+                        <th>العميل</th>
+                        <th>IMEI</th>
+                        <th>المشكلة</th>
+                        <th>التكلفة</th>
+                        <th>الحالة</th>
+                        <th class="no-print">إجراءات</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+            
+            <div id="repairTicket" style="display: none; margin-top: 20px;">
+                <div id="repairInfo"></div>
+                <button onclick="printRepairTicket()" class="print">طباعة إيصال الإصلاح</button>
+            </div>
+        </div>
+        
+        <!-- Clients Section -->
+        <div id="clients" class="tab-content">
+            <h2>إدارة العملاء</h2>
+            <button onclick="showAddClientForm()" class="no-print">إضافة عميل جديد</button>
+            
+            <div id="addClientForm" style="display: none; margin-top: 20px; border: 1px solid #ddd; padding: 15px; border-radius: 5px;">
+                <h3>بيانات العميل الجديد</h3>
+                <div class="form-group">
+                    <label for="clientName">الاسم الكامل:</label>
+                    <input type="text" id="clientName" required>
+                </div>
+                <div class="form-group">
+                    <label for="clientPhone">رقم الهاتف:</label>
+                    <input type="text" id="clientPhone" required>
+                </div>
+                <div class="form-group">
+                    <label for="clientEmail">البريد الإلكتروني:</label>
+                    <input type="email" id="clientEmail">
+                </div>
+                <div class="form-group">
+                    <label for="clientAddress">العنوان:</label>
+                    <input type="text" id="clientAddress">
+                </div>
+                <button onclick="addClient()">حفظ العميل</button>
+            </div>
+
+            <h3>قائمة العملاء</h3>
+            <table id="clientsTable">
+                <thead>
+                    <tr>
+                        <th>الاسم</th>
+                        <th>الهاتف</th>
+                        <th>البريد الإلكتروني</th>
+                        <th class="no-print">إجراءات</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Invoice Print Template -->
+    <div id="printInvoiceTemplate" style="display: none;">
+        <div class="print-only" style="width: 210mm; min-height: 297mm; padding: 15mm; margin: 0 auto;">
+            <div style="text-align: center; margin-bottom: 20px;">
+                <h1 style="margin: 0;">فاتورة بيع</h1>
+                <p style="margin: 5px 0;" id="printInvoiceNumber">رقم الفاتورة: INV-0001</p>
+                <p style="margin: 5px 0;" id="printInvoiceDate">التاريخ: 01/01/2023</p>
+            </div>
+            
+            <div style="display: flex; justify-content: space-between; margin-bottom: 20px;">
+                <div>
+                    <h3 style="margin: 0 0 10px 0;">البائع:</h3>
+                    <p style="margin: 5px 0;">متجر الهواتف الذكية</p>
+                    <p style="margin: 5px 0;">الهاتف: 0123456789</p>
+                </div>
+                <div>
+                    <h3 style="margin: 0 0 10px 0; text-align: right;">العميل:</h3>
+                    <p style="margin: 5px 0; text-align: right;" id="printClientName">أحمد محمد</p>
+                    <p style="margin: 5px 0; text-align: right;" id="printClientPhone">0512345678</p>
+                </div>
+            </div>
+            
+            <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+                <thead>
+                    <tr>
+                        <th style="border: 1px solid #000; padding: 8px;">#</th>
+                        <th style="border: 1px solid #000; padding: 8px;">الموديل</th>
+                        <th style="border: 1px solid #000; padding: 8px;">IMEI</th>
+                        <th style="border: 1px solid #000; padding: 8px;">السعر</th>
+                    </tr>
+                </thead>
+                <tbody id="printInvoiceItems"></tbody>
+                <tfoot>
+                    <tr>
+                        <td colspan="3" style="border: 1px solid #000; padding: 8px; text-align: left;">المجموع</td>
+                        <td style="border: 1px solid #000; padding: 8px;" id="printInvoiceTotal">0.000 د.ت</td>
+                    </tr>
+                </tfoot>
+            </table>
+            
+            <div style="margin-top: 30px;">
+                <p style="margin: 5px 0;" id="printPaymentMethod">طريقة الدفع: نقدي</p>
+                <p style="margin: 5px 0;">شكراً لتعاملكم معنا</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Repair Ticket Print Template -->
+    <div id="printRepairTemplate" style="display: none;">
+        <div class="print-only" style="width: 80mm; min-height: 100mm; padding: 5mm; margin: 0 auto; font-size: 12px;">
+            <div style="text-align: center; margin-bottom: 10px;">
+                <h2 style="margin: 0; font-size: 16px;">إيصال استلام جهاز</h2>
+                <p style="margin: 5px 0; font-size: 10px;" id="printRepairNumber">رقم الإصلاح: REP-0001</p>
+                <p style="margin: 5px 0; font-size: 10px;" id="printRepairDate">تاريخ الاستلام: 01/01/2023</p>
+            </div>
+            
+            <div style="margin-bottom: 10px;">
+                <p style="margin: 3px 0;"><strong>العميل:</strong> <span id="printRepairClient">أحمد محمد</span></p>
+                <p style="margin: 3px 0;"><strong>الهاتف:</strong> <span id="printRepairClientPhone">0512345678</span></p>
+            </div>
+            
+            <div style="margin-bottom: 10px;">
+                <p style="margin: 3px 0;"><strong>IMEI:</strong> <span id="printRepairImei">123456789012345</span></p>
+            </div>
+            
+            <div style="margin-bottom: 10px;">
+                <p style="margin: 3px 0;"><strong>وصف المشكلة:</strong></p>
+                <p style="margin: 3px 0; border: 1px dashed #ccc; padding: 5px; min-height: 20px;" id="printRepairProblem">شاشة مكسورة</p>
+            </div>
+            
+            <div style="margin-bottom: 10px;">
+                <p style="margin: 3px 0;"><strong>التكلفة المقدرة:</strong> <span id="printRepairCost">200.000 د.ت</span></p>
+            </div>
+            
+            <div style="margin-top: 15px; text-align: center; border-top: 1px dashed #000; padding-top: 5px;">
+                <p style="margin: 3px 0; font-size: 10px;">توقيع المستلم</p>
+                <p style="margin: 3px 0; border-top: 1px dashed #ccc; width: 50%; margin-left: auto; margin-right: auto; height: 20px;"></p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==================== SYSTEM INITIALIZATION ====================
+        // Currency format for Tunisian Dinar
+        function formatCurrency(amount) {
+            return parseFloat(amount).toFixed(3) + " د.ت";
+        }
+
+        // Data storage
+        let phones = JSON.parse(localStorage.getItem('phones')) || [];
+        let clients = JSON.parse(localStorage.getItem('clients')) || [];
+        let invoices = JSON.parse(localStorage.getItem('invoices')) || [];
+        let repairs = JSON.parse(localStorage.getItem('repairs')) || [];
+        let users = JSON.parse(localStorage.getItem('users')) || [
+            { username: "admin", password: "admin123", role: "admin" }
+        ];
+        
+        // Current session
+        let currentUser = null;
+        let selectedPhonesForSale = [];
+        let currentInvoiceId = null;
+        let currentRepairId = null;
+
+        // ==================== AUTHENTICATION SYSTEM ====================
+        function showRegisterForm() {
+            document.getElementById('loginSection').classList.add('hidden');
+            document.getElementById('registerSection').classList.remove('hidden');
+        }
+
+        function showLoginForm() {
+            document.getElementById('registerSection').classList.add('hidden');
+            document.getElementById('loginSection').classList.remove('hidden');
+        }
+
+        function login() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            
+            const user = users.find(u => u.username === username && u.password === password);
+            
+            if (user) {
+                currentUser = user;
+                document.getElementById('loginSection').classList.add('hidden');
+                document.getElementById('appContent').classList.remove('hidden');
+                initApp();
+            } else {
+                alert("اسم المستخدم أو كلمة المرور غير صحيحة");
+            }
+        }
+
+        function register() {
+            const username = document.getElementById('newUsername').value;
+            const password = document.getElementById('newPassword').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+            
+            if (password !== confirmPassword) {
+                alert("كلمة المرور غير متطابقة");
+                return;
+            }
+            
+            if (users.some(u => u.username === username)) {
+                alert("اسم المستخدم موجود بالفعل");
+                return;
+            }
+            
+            const newUser = {
+                username,
+                password,
+                role: "user"
+            };
+            
+            users.push(newUser);
+            localStorage.setItem('users', JSON.stringify(users));
+            
+            alert("تم إنشاء الحساب بنجاح");
+            showLoginForm();
+        }
+
+        function logout() {
+            currentUser = null;
+            document.getElementById('appContent').classList.add('hidden');
+            document.getElementById('loginSection').classList.remove('hidden');
+            document.getElementById('username').value = '';
+            document.getElementById('password').value = '';
+        }
+
+        // ==================== APPLICATION INITIALIZATION ====================
+        function initApp() {
+            updateInventoryTable();
+            updateClientsTable();
+            updateInvoicesTable();
+            updateRepairsTable();
+            populateClientSelect();
+            populateRepairClientSelect();
+        }
+
+        // ==================== INVENTORY MANAGEMENT ====================
+        function addPhone() {
+            const model = document.getElementById('phoneModel').value;
+            const color = document.getElementById('phoneColor').value;
+            const storage = document.getElementById('phoneStorage').value;
+            const imei = document.getElementById('phoneImei').value;
+            const purchasePrice = parseFloat(document.getElementById('purchasePrice').value);
+            const salePrice = parseFloat(document.getElementById('salePrice').value);
+            
+            if (!model || !color || !storage || !imei || isNaN(purchasePrice) || isNaN(salePrice)) {
+                alert("الرجاء ملء جميع الحقول المطلوبة بشكل صحيح");
+                return;
+            }
+            
+            if (phones.some(phone => phone.imei === imei)) {
+                alert("رقم IMEI مسجل مسبقاً!");
+                return;
+            }
+            
+            const newPhone = {
+                id: Date.now(),
+                model,
+                color,
+                storage,
+                imei,
+                purchasePrice,
+                salePrice,
+                status: "في المخزون",
+                addedDate: new Date().toLocaleDateString('ar-TN')
+            };
+            
+            phones.push(newPhone);
+            localStorage.setItem('phones', JSON.stringify(phones));
+            
+            updateInventoryTable();
+            
+            // Clear form
+            document.getElementById('phoneModel').value = '';
+            document.getElementById('phoneColor').value = '';
+            document.getElementById('phoneStorage').value = '';
+            document.getElementById('phoneImei').value = '';
+            document.getElementById('purchasePrice').value = '';
+            document.getElementById('salePrice').value = '';
+            
+            alert("تمت إضافة الهاتف إلى المخزون بنجاح!");
+        }
+
+        function updateInventoryTable() {
+            const tableBody = document.querySelector('#inventoryTable tbody');
+            tableBody.innerHTML = '';
+            
+            phones.forEach(phone => {
+                const row = document.createElement('tr');
+                
+                row.innerHTML = `
+                    <td>${phone.model}</td>
+                    <td>${phone.color}</td>
+                    <td>${phone.storage}</td>
+                    <td>${phone.imei}</td>
+                    <td>${formatCurrency(phone.purchasePrice)}</td>
+                    <td>${formatCurrency(phone.salePrice)}</td>
+                    <td>${phone.status}</td>
+                    <td class="no-print">
+                        ${phone.status === 'في المخزون' ? 
+                            `<button onclick="addPhoneToSale(${phone.id})" class="danger">بيع</button>` : 
+                            ''}
+                    </td>
+                `;
+                
+                tableBody.appendChild(row);
+            });
+        }
+
+        // ==================== CLIENT MANAGEMENT ====================
+        function showAddClientForm() {
+            document.getElementById('addClientForm').style.display = 'block';
+            document.getElementById('clientName').focus();
+        }
+
+        function addClient() {
+            const name = document.getElementById('clientName').value;
+            const phone = document.getElementById('clientPhone').value;
+            const email = document.getElementById('clientEmail').value;
+            const address = document.getElementById('clientAddress').value;
+            
+            if (!name || !phone) {
+                alert("الاسم ورقم الهاتف حقول مطلوبة");
+                return;
+            }
+            
+            const newClient = {
+                id: Date.now(),
+                name,
+                phone,
+                email,
+                address
+            };
+            
+            clients.push(newClient);
+            localStorage.setItem('clients', JSON.stringify(clients));
+            
+            updateClientsTable();
+            populateClientSelect();
+            populateRepairClientSelect();
+            
+            // Clear form
+            document.getElementById('clientName').value = '';
+            document.getElementById('clientPhone').value = '';
+            document.getElementById('clientEmail').value = '';
+            document.getElementById('clientAddress').value = '';
+            document.getElementById('addClientForm').style.display = 'none';
+            
+            alert("تمت إضافة العميل بنجاح");
+        }
+
+        function updateClientsTable() {
+            const tableBody = document.querySelector('#clientsTable tbody');
+            tableBody.innerHTML = '';
+            
+            clients.forEach(client => {
+                const row = document.createElement('tr');
+                
+                row.innerHTML = `
+                    <td>${client.name}</td>
+                    <td>${client.phone}</td>
+                    <td>${client.email || '-'}</td>
+                    <td class="no-print">
+                        <button onclick="editClient(${client.id})" style="background: #2196F3;">تعديل</button>
+                        <button onclick="deleteClient(${client.id})" class="danger">حذف</button>
+                    </td>
+                `;
+                
+                tableBody.appendChild(row);
+            });
+        }
+
+        function populateClientSelect() {
+            const select = document.getElementById('clientSelect');
+            select.innerHTML = '<option value="">-- اختر عميل --</option>';
+            
+            clients.forEach(client => {
+                const option = document.createElement('option');
+                option.value = client.id;
+                option.textContent = `${client.name} - ${client.phone}`;
+                select.appendChild(option);
+            });
+        }
+
+        function populateRepairClientSelect() {
+            const select = document.getElementById('repairClient');
+            select.innerHTML = '<option value="">-- اختر عميل --</option>';
+            
+            clients.forEach(client => {
+                const option = document.createElement('option');
+                option.value = client.id;
+                option.textContent = `${client.name} - ${client.phone}`;
+                select.appendChild(option);
+            });
+        }
+
+        // ==================== SALES MANAGEMENT ====================
+        function searchPhonesForSale() {
+            const searchTerm = document.getElementById('searchPhoneSale').value.toLowerCase();
+            const tableBody = document.querySelector('#availablePhonesTable tbody');
+            tableBody.innerHTML = '';
+            
+            const availablePhones = phones.filter(phone => phone.status === 'في المخزون');
+            
+            if (searchTerm) {
+                const filteredPhones = availablePhones.filter(phone => 
+                    phone.model.toLowerCase().includes(searchTerm) || 
+                    phone.imei.toLowerCase().includes(searchTerm)
+                );
+                
+                filteredPhones.forEach(phone => {
+                    addPhoneToSaleTable(phone, tableBody);
+                });
+            } else {
+                availablePhones.forEach(phone => {
+                    addPhoneToSaleTable(phone, tableBody);
+                });
+            }
+        }
+
+        function addPhoneToSaleTable(phone, tableBody) {
+            const row = document.createElement('tr');
+            
+            row.innerHTML = `
+                <td>${phone.model}</td>
+                <td>${phone.imei}</td>
+                <td>${formatCurrency(phone.salePrice)}</td>
+                <td>
+                    <button onclick="addPhoneToSale(${phone.id})">إضافة للبيع</button>
+                </td>
+            `;
+            
+            tableBody.appendChild(row);
+        }
+
+        function addPhoneToSale(phoneId) {
+            const phone = phones.find(p => p.id === phoneId);
+            
+            if (!phone) return;
+            
+            const alreadyAdded = selectedPhonesForSale.some(p => p.id === phone.id);
+            if (alreadyAdded) {
+                alert("هذا الهاتف مضاف مسبقاً إلى الفاتورة");
+                return;
+            }
+            
+            selectedPhonesForSale.push(phone);
+            updateSelectedPhonesTable();
+            calculateTotal();
+        }
+
+        function updateSelectedPhonesTable() {
+            const tableBody = document.querySelector('#selectedPhonesTable tbody');
+            tableBody.innerHTML = '';
+            
+            selectedPhonesForSale.forEach(phone => {
+                const row = document.createElement('tr');
+                
+                row.innerHTML = `
+                    <td>${phone.model}</td>
+                    <td>${phone.imei}</td>
+                    <td>${formatCurrency(phone.salePrice)}</td>
+                    <td>
+                        <button onclick="removePhoneFromSale(${phone.id})" class="danger">إزالة</button>
+                    </td>
+                `;
+                
+                tableBody.appendChild(row);
+            });
+        }
+
+        function removePhoneFromSale(phoneId) {
+            selectedPhonesForSale = selectedPhonesForSale.filter(p => p.id !== phoneId);
+            updateSelectedPhonesTable();
+            calculateTotal();
+        }
+
+        function calculateTotal() {
+            const total = selectedPhonesForSale.reduce((sum, phone) => sum + phone.salePrice, 0);
+            document.getElementById('totalAmount').textContent = formatCurrency(total);
+        }
+
+        function createInvoice() {
+            const clientId = parseInt(document.getElementById('clientSelect').value);
+            const paymentMethod = document.getElementById('paymentMethod').value;
+            
+            if (!clientId) {
+                alert("الرجاء اختيار عميل");
+                return;
+            }
+            
+            if (selectedPhonesForSale.length === 0) {
+                alert("الرجاء إضافة هواتف للبيع");
+                return;
+            }
+            
+            const client = clients.find(c => c.id === clientId);
+            if (!client) {
+                alert("العميل المحدد غير موجود");
+                return;
+            }
+            
+            const invoiceNumber = `INV-${Date.now().toString().slice(-6)}`;
+            const invoiceDate = new Date().toLocaleDateString('ar-TN');
+            const totalAmount = selectedPhonesForSale.reduce((sum, phone) => sum + phone.salePrice, 0);
+            
+            const newInvoice = {
+                id: Date.now(),
+                invoiceNumber,
+                date: invoiceDate,
+                clientId,
+                clientName: client.name,
+                clientPhone: client.phone,
+                items: selectedPhonesForSale.map(phone => ({
+                    phoneId: phone.id,
+                    model: phone.model,
+                    imei: phone.imei,
+                    price: phone.salePrice
+                })),
+                totalAmount,
+                paymentMethod,
+                status: "مدفوعة"
+            };
+            
+            // Update phone status to "Sold"
+            selectedPhonesForSale.forEach(phone => {
+                const phoneIndex = phones.findIndex(p => p.id === phone.id);
+                if (phoneIndex !== -1) {
+                    phones[phoneIndex].status = "مباع";
+                    phones[phoneIndex].soldDate = invoiceDate;
+                }
+            });
+            
+            // Save data
+            invoices.push(newInvoice);
+            localStorage.setItem('invoices', JSON.stringify(invoices));
+            localStorage.setItem('phones', JSON.stringify(phones));
+            
+            // Update UI
+            updateInventoryTable();
+            updateInvoicesTable();
+            
+            // Clear sale data
+            selectedPhonesForSale = [];
+            document.getElementById('clientSelect').value = '';
+            document.getElementById('paymentMethod').value = 'نقدي';
+            document.querySelector('#selectedPhonesTable tbody').innerHTML = '';
+            document.getElementById('totalAmount').textContent = formatCurrency(0);
+            document.getElementById('searchPhoneSale').value = '';
+            document.querySelector('#availablePhonesTable tbody').innerHTML = '';
+            
+            // Show invoice
+            viewInvoice(newInvoice.id);
+            openTab('invoices');
+            
+            alert(`تم إنشاء الفاتورة ${invoiceNumber} بنجاح`);
+        }
+
+        // ==================== INVOICE MANAGEMENT ====================
+        function updateInvoicesTable() {
+            const tableBody = document.querySelector('#invoicesTable tbody');
+            tableBody.innerHTML = '';
+            
+            invoices.forEach(invoice => {
+                const row = document.createElement('tr');
+                
+                row.innerHTML = `
+                    <td>${invoice.invoiceNumber}</td>
+                    <td>${invoice.date}</td>
+                    <td>${invoice.clientName}</td>
+                    <td>${formatCurrency(invoice.totalAmount)}</td>
+                    <td>${invoice.paymentMethod}</td>
+                    <td class="no-print">
+                        <button onclick="viewInvoice(${invoice.id})">عرض</button>
+                        <button onclick="printInvoice(${invoice.id})" class="print">طباعة</button>
+                    </td>
+                `;
+                
+                tableBody.appendChild(row);
+            });
+        }
+
+        function searchInvoices() {
+            const searchTerm = document.getElementById('searchInvoice').value.toLowerCase();
+            const tableBody = document.querySelector('#invoicesTable tbody');
+            tableBody.innerHTML = '';
+            
+            if (searchTerm) {
+                const filteredInvoices = invoices.filter(invoice => 
+                    invoice.invoiceNumber.toLowerCase().includes(searchTerm) || 
+                    invoice.clientName.toLowerCase().includes(searchTerm) || 
+                    invoice.clientPhone.includes(searchTerm)
+                );
+                
+                filteredInvoices.forEach(invoice => {
+                    addInvoiceToTable(invoice, tableBody);
+                });
+            } else {
+                invoices.forEach(invoice => {
+                    addInvoiceToTable(invoice, tableBody);
+                });
+            }
+        }
+
+        function addInvoiceToTable(invoice, tableBody) {
+            const row = document.createElement('tr');
+            
+            row.innerHTML = `
+                <td>${invoice.invoiceNumber}</td>
+                <td>${invoice.date}</td>
+                <td>${invoice.clientName}</td>
+                <td>${formatCurrency(invoice.totalAmount)}</td>
+                <td>${invoice.paymentMethod}</td>
+                <td class="no-print">
+                    <button onclick="viewInvoice(${invoice.id})">عرض</button>
+                    <button onclick="printInvoice(${invoice.id})" class="print">طباعة</button>
+                </td>
+            `;
+            
+            tableBody.appendChild(row);
+        }
+
+        function viewInvoice(invoiceId) {
+            const invoice = invoices.find(i => i.id === invoiceId);
+            if (!invoice) return;
+            
+            currentInvoiceId = invoiceId;
+            
+            const client = clients.find(c => c.id === invoice.clientId);
+            
+            let itemsHtml = '';
+            invoice.items.forEach((item, index) => {
+                itemsHtml += `
+                    <tr>
+                        <td style="border: 1px solid #ddd; padding: 8px;">${index + 1}</td>
+                        <td style="border: 1px solid #ddd; padding: 8px;">${item.model}</td>
+                        <td style="border: 1px solid #ddd; padding: 8px;">${item.imei}</td>
+                        <td style="border: 1px solid #ddd; padding: 8px;">${formatCurrency(item.price)}</td>
+                    </tr>
+                `;
+            });
+            
+            const invoiceHtml = `
+                <h4>فاتورة رقم: ${invoice.invoiceNumber}</h4>
+                <p><strong>التاريخ:</strong> ${invoice.date}</p>
+                <p><strong>العميل:</strong> ${invoice.clientName} - ${invoice.clientPhone}</p>
+                <p><strong>طريقة الدفع:</strong> ${invoice.paymentMethod}</p>
+                
+                <table style="width: 100%; border-collapse: collapse; margin: 15px 0;">
+                    <thead>
+                        <tr>
+                            <th style="border: 1px solid #ddd; padding: 8px;">#</th>
+                            <th style="border: 1px solid #ddd; padding: 8px;">الموديل</th>
+                            <th style="border: 1px solid #ddd; padding: 8px;">IMEI</th>
+                            <th style="border: 1px solid #ddd; padding: 8px;">السعر</th>
+                        </tr>
+                    </thead>
+                    <tbody>${itemsHtml}</tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="3" style="border: 1px solid #ddd; padding: 8px; text-align: left;"><strong>المجموع</strong></td>
+                            <td style="border: 1px solid #ddd; padding: 8px;"><strong>${formatCurrency(invoice.totalAmount)}</strong></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            `;
+            
+            document.getElementById('invoiceInfo').innerHTML = invoiceHtml;
+            document.getElementById('invoiceDetails').style.display = 'block';
+        }
+
+        function printInvoice(invoiceId = null) {
+            const invoice = invoices.find(i => i.id === (invoiceId || currentInvoiceId));
+            if (!invoice) return;
+            
+            const client = clients.find(c => c.id === invoice.clientId);
+            
+            // Fill print template
+            document.getElementById('printInvoiceNumber').textContent = `رقم الفاتورة: ${invoice.invoiceNumber}`;
+            document.getElementById('printInvoiceDate').textContent = `التاريخ: ${invoice.date}`;
+            document.getElementById('printClientName').textContent = client ? client.name : '';
+            document.getElementById('printClientPhone').textContent = client ? client.phone : '';
+            document.getElementById('printPaymentMethod').textContent = `طريقة الدفع: ${invoice.paymentMethod}`;
+            
+            let itemsHtml = '';
+            invoice.items.forEach((item, index) => {
+                itemsHtml += `
+                    <tr>
+                        <td style="border: 1px solid #000; padding: 8px;">${index + 1}</td>
+                        <td style="border: 1px solid #000; padding: 8px;">${item.model}</td>
+                        <td style="border: 1px solid #000; padding: 8px;">${item.imei}</td>
+                        <td style="border: 1px solid #000; padding: 8px;">${formatCurrency(item.price)}</td>
+                    </tr>
+                `;
+            });
+            
+            document.getElementById('printInvoiceItems').innerHTML = itemsHtml;
+            document.getElementById('printInvoiceTotal').textContent = formatCurrency(invoice.totalAmount);
+            
+            // Create print window
+            const printContent = document.getElementById('printInvoiceTemplate').innerHTML;
+            const originalContent = document.body.innerHTML;
+            
+            document.body.innerHTML = printContent;
+            window.print();
+            document.body.innerHTML = originalContent;
+            
+            // Restore UI state
+            if (invoiceId) {
+                viewInvoice(invoiceId);
+            } else if (currentInvoiceId) {
+                viewInvoice(currentInvoiceId);
+            }
+            
+            // Reload events
+            updateInventoryTable();
+            updateInvoicesTable();
+        }
+
+        function exportInvoiceToPDF() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            
+            const invoice = invoices.find(i => i.id === currentInvoiceId);
+            if (!invoice) return;
+            
+            const client = clients.find(c => c.id === invoice.clientId);
+            
+            // Invoice title
+            doc.setFontSize(18);
+            doc.text('فاتورة بيع', 105, 20, { align: 'center' });
+            
+            doc.setFontSize(12);
+            doc.text(`رقم الفاتورة: ${invoice.invoiceNumber}`, 14, 30);
+            doc.text(`التاريخ: ${invoice.date}`, 14, 38);
+            
+            // Seller and client info
+            doc.text('البائع:', 14, 50);
+            doc.text('متجر الهواتف الذكية', 14, 58);
+            doc.text('الهاتف: 0123456789', 14, 66);
+            
+            doc.text('العميل:', 105, 50, { align: 'right' });
+            doc.text(client ? client.name : '', 105, 58, { align: 'right' });
+            doc.text(client ? client.phone : '', 105, 66, { align: 'right' });
+            
+            // Items table
+            doc.autoTable({
+                startY: 80,
+                head: [['#', 'الموديل', 'IMEI', 'السعر']],
+                body: invoice.items.map((item, index) => [
+                    index + 1,
+                    item.model,
+                    item.imei,
+                    formatCurrency(item.price)
+                ]),
+                foot: [['', '', 'المجموع', formatCurrency(invoice.totalAmount)]],
+                styles: { font: 'Arial', fontStyle: 'normal', halign: 'right' },
+                headStyles: { fillColor: [64, 64, 64], textColor: 255 },
+                footStyles: { fillColor: [64, 64, 64], textColor: 255 }
+            });
+            
+            // Payment method
+            doc.text(`طريقة الدفع: ${invoice.paymentMethod}`, 14, doc.lastAutoTable.finalY + 15);
+            doc.text('شكراً لتعاملكم معنا', 105, doc.lastAutoTable.finalY + 15, { align: 'center' });
+            
+            // Save file
+            doc.save(`فاتورة_${invoice.invoiceNumber}.pdf`);
+        }
+
+        function exportInvoiceToExcel() {
+            const invoice = invoices.find(i => i.id === currentInvoiceId);
+            if (!invoice) return;
+            
+            const client = clients.find(c => c.id === invoice.clientId);
+            
+            // Prepare data
+            const data = [
+                ['فاتورة بيع', '', '', ''],
+                [`رقم الفاتورة: ${invoice.invoiceNumber}`, '', `التاريخ: ${invoice.date}`, ''],
+                ['', '', '', ''],
+                ['البائع:', 'متجر الهواتف الذكية', 'العميل:', client ? client.name : ''],
+                ['الهاتف:', '0123456789', 'الهاتف:', client ? client.phone : ''],
+                ['', '', '', ''],
+                ['#', 'الموديل', 'IMEI', 'السعر'],
+                ...invoice.items.map((item, index) => [
+                    index + 1,
+                    item.model,
+                    item.imei,
+                    formatCurrency(item.price)
+                ]),
+                ['', '', 'المجموع', formatCurrency(invoice.totalAmount)],
+                ['', '', '', ''],
+                [`طريقة الدفع: ${invoice.paymentMethod}`, '', '', '']
+            ];
+            
+            // Create Excel workbook
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.aoa_to_sheet(data);
+            
+            // Add worksheet to workbook
+            XLSX.utils.book_append_sheet(wb, ws, "الفاتورة");
+            
+            // Export file
+            XLSX.writeFile(wb, `فاتورة_${invoice.invoiceNumber}.xlsx`);
+        }
+
+        // ==================== REPAIR MANAGEMENT ====================
+        function showRepairForm() {
+            document.getElementById('repairForm').style.display = 'block';
+            document.getElementById('repairClient').focus();
+        }
+
+        function createRepairOrder() {
+            const clientId = parseInt(document.getElementById('repairClient').value);
+            const imei = document.getElementById('repairPhoneImei').value;
+            const problem = document.getElementById('problemDesc').value;
+            const cost = parseFloat(document.getElementById('estimatedCost').value) || 0;
+            
+            if (!clientId) {
+                alert("الرجاء اختيار عميل");
+                return;
+            }
+            
+            if (!problem) {
+                alert("الرجاء إدخال وصف المشكلة");
+                return;
+            }
+            
+            const client = clients.find(c => c.id === clientId);
+            if (!client) {
+                alert("العميل المحدد غير موجود");
+                return;
+            }
+            
+            const repairNumber = `REP-${Date.now().toString().slice(-6)}`;
+            const repairDate = new Date().toLocaleDateString('ar-TN');
+            
+            // Create repair order
+            const newRepair = {
+                id: Date.now(),
+                repairNumber,
+                date: repairDate,
+                clientId,
+                clientName: client.name,
+                clientPhone: client.phone,
+                imei,
+                problem,
+                cost,
+                status: "قيد الإصلاح"
+            };
+            
+            // Save data
+            repairs.push(newRepair);
+            localStorage.setItem('repairs', JSON.stringify(repairs));
+            
+            // Update UI
+            updateRepairsTable();
+            
+            // Clear form
+            document.getElementById('repairClient').value = '';
+            document.getElementById('repairPhoneImei').value = '';
+            document.getElementById('problemDesc').value = '';
+            document.getElementById('estimatedCost').value = '';
+            document.getElementById('repairForm').style.display = 'none';
+            
+            // Show repair ticket
+            viewRepair(newRepair.id);
+            
+            alert(`تم إنشاء أمر الإصلاح ${repairNumber} بنجاح`);
+        }
+
+        function updateRepairStatus(repairId, newStatus) {
+            const repairIndex = repairs.findIndex(r => r.id === repairId);
+            if (repairIndex !== -1) {
+                repairs[repairIndex].status = newStatus;
+                localStorage.setItem('repairs', JSON.stringify(repairs));
+                updateRepairsTable();
+            }
+        }
+
+        function updateRepairsTable() {
+            const tableBody = document.querySelector('#repairsTable tbody');
+            tableBody.innerHTML = '';
+            
+            repairs.forEach(repair => {
+                const row = document.createElement('tr');
+                
+                row.innerHTML = `
+                    <td>${repair.repairNumber}</td>
+                    <td>${repair.clientName}</td>
+                    <td>${repair.imei || '-'}</td>
+                    <td>${repair.problem.substring(0, 30)}${repair.problem.length > 30 ? '...' : ''}</td>
+                    <td>${formatCurrency(repair.cost)}</td>
+                    <td>
+                        <select onchange="updateRepairStatus(${repair.id}, this.value)" 
+                                style="padding: 5px; border-radius: 4px; border: 1px solid #ddd;">
+                            <option value="قيد الإصلاح" ${repair.status === 'قيد الإصلاح' ? 'selected' : ''}>قيد الإصلاح</option>
+                            <option value="مكتمل" ${repair.status === 'مكتمل' ? 'selected' : ''}>مكتمل</option>
+                            <option value="مسلم" ${repair.status === 'مسلم' ? 'selected' : ''}>مسلم</option>
+                            <option value="ملغى" ${repair.status === 'ملغى' ? 'selected' : ''}>ملغى</option>
+                        </select>
+                    </td>
+                    <td class="no-print">
+                        <button onclick="viewRepair(${repair.id})">عرض</button>
+                        <button onclick="printRepairTicket(${repair.id})" class="print">طباعة</button>
+                    </td>
+                `;
+                
+                tableBody.appendChild(row);
+            });
+        }
+
+        function viewRepair(repairId) {
+            const repair = repairs.find(r => r.id === repairId);
+            if (!repair) return;
+            
+            currentRepairId = repairId;
+            
+            const repairHtml = `
+                <h4>أمر إصلاح رقم: ${repair.repairNumber}</h4>
+                <p><strong>التاريخ:</strong> ${repair.date}</p>
+                <p><strong>العميل:</strong> ${repair.clientName} - ${repair.clientPhone}</p>
+                <p><strong>IMEI:</strong> ${repair.imei || 'غير محدد'}</p>
+                <p><strong>وصف المشكلة:</strong></p>
+                <p style="border: 1px dashed #ccc; padding: 10px;">${repair.problem}</p>
+                <p><strong>التكلفة المقدرة:</strong> ${formatCurrency(repair.cost)}</p>
+                <p><strong>الحالة:</strong> ${repair.status}</p>
+            `;
+            
+            document.getElementById('repairInfo').innerHTML = repairHtml;
+            document.getElementById('repairTicket').style.display = 'block';
+        }
+
+        function printRepairTicket(repairId = null) {
+            const repair = repairs.find(r => r.id === (repairId || currentRepairId));
+            if (!repair) return;
+            
+            // Fill print template
+            document.getElementById('printRepairNumber').textContent = `رقم الإصلاح: ${repair.repairNumber}`;
+            document.getElementById('printRepairDate').textContent = `تاريخ الاستلام: ${repair.date}`;
+            document.getElementById('printRepairClient').textContent = repair.clientName;
+            document.getElementById('printRepairClientPhone').textContent = repair.clientPhone;
+            document.getElementById('printRepairImei').textContent = repair.imei || 'غير محدد';
+            document.getElementById('printRepairProblem').textContent = repair.problem;
+            document.getElementById('printRepairCost').textContent = formatCurrency(repair.cost);
+            
+            // Create print window
+            const printContent = document.getElementById('printRepairTemplate').innerHTML;
+            const originalContent = document.body.innerHTML;
+            
+            document.body.innerHTML = printContent;
+            window.print();
+            document.body.innerHTML = originalContent;
+            
+            // Restore UI state
+            if (repairId) {
+                viewRepair(repairId);
+            } else if (currentRepairId) {
+                viewRepair(currentRepairId);
+            }
+            
+            // Reload events
+            updateRepairsTable();
+        }
+
+        // ==================== UTILITY FUNCTIONS ====================
+        function openTab(tabId) {
+            // Hide all tab contents
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            
+            // Deactivate all tabs
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Show selected tab content
+            document.getElementById(tabId).classList.add('active');
+            
+            // Activate selected tab
+            event.currentTarget.classList.add('active');
+            
+            // Update data when opening tab
+            if (tabId === 'inventory') updateInventoryTable();
+            if (tabId === 'sales') {
+                searchPhonesForSale();
+                updateSelectedPhonesTable();
+            }
+            if (tabId === 'invoices') updateInvoicesTable();
+            if (tabId === 'repairs') updateRepairsTable();
+            if (tabId === 'clients') updateClientsTable();
+        }
+
+        // ==================== INITIALIZE ON LOAD ====================
+        document.addEventListener('DOMContentLoaded', function() {
+            // Check if user is already logged in (for development)
+            if (localStorage.getItem('currentUser')) {
+                currentUser = JSON.parse(localStorage.getItem('currentUser'));
+                document.getElementById('loginSection').classList.add('hidden');
+                document.getElementById('appContent').classList.remove('hidden');
+                initApp();
+            }
+        });
+    </script>
+</body>
+</html>
