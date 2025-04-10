@@ -1,0 +1,14 @@
+C:\RepairShop\src\main\java\com\repairsystem\dao\TicketDAO.java
+C:\RepairShop\src\main\java\com\repairsystem\model\Ticket.java
+C:\RepairShop\src\main\java\com\repairsystem\model\Branch.java
+C:\RepairShop\src\main\java\com\repairsystem\model\User.java
+C:\RepairShop\src\main\java\com\repairsystem\util\DatabaseConnection.java
+C:\RepairShop\src\main\java\com\repairsystem\RepairShopApplication.java
+C:\RepairShop\src\main\java\com\repairsystem\controller\InventoryServlet.java
+C:\RepairShop\src\main\java\com\repairsystem\dao\InventoryDAO.java
+C:\RepairShop\src\main\java\com\repairsystem\util\DatabaseUtil.java
+C:\RepairShop\src\main\java\com\repairsystem\dao\TicketRepository.java
+C:\RepairShop\src\main\java\com\repairsystem\util\SecurityUtil.java
+C:\RepairShop\src\main\java\com\repairsystem\filter\AuthFilter.java
+C:\RepairShop\src\main\java\com\repairsystem\model\InventoryItem.java
+C:\RepairShop\src\main\java\com\repairsystem\controller\TicketController.java

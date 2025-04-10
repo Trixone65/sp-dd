@@ -1,0 +1,24 @@
+package com.repairsystem.service;
+
+import com.repairsystem.dao.TicketDAO;
+import com.repairsystem.model.Ticket;
+
+public class TicketService {
+    private TicketDAO ticketDao = new TicketDAO();
+    
+    public Ticket getTicketById(int id) {
+        return ticketDao.getById(id);
+    }
+    
+    public boolean createTicket(Ticket ticket) {
+        return ticketDao.create(ticket);
+    }
+    
+    public boolean updateTicket(Ticket ticket) {
+        return ticketDao.update(ticket);
+    }
+    
+    public boolean deleteTicket(int id) {
+        return ticketDao.delete(id);
+    }
+}
